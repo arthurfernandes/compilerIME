@@ -7,149 +7,29 @@
 //
 
 #include "analisador_sintatico.hpp"
+#include "analisador_escopo.hpp"
 #include <stack>
 #include <vector>
 #include <unordered_map>
-
-#define DT_RULE 8
-#define DF_RULE 7
-#define IDD_RULE 82
-#define IDU_RULE 83
-#define ID_RULE 84
-#define NB_RULE 85
 
 using namespace std;
 
 stack<int> stateStack;
 vector<unordered_map<int,int>> actionTable(ACTION_TABLE_SIZE);
 
-typedef enum{
-    ACCEPT = 60,END,P,LDE,DE,DF,DT,DC,LI,DV,LP,B,LDV,LS,S,E,L,R,K,F,LE,LV,T,TRU,FALS,CHR,STR,NUM,IDD,IDU,ID,NB
-} symbols;
-
 int ruleLen[] = {2,2,2,1,1,1,1,9,9,10,5,5,3,3,1,5,5,3,0,4,3,3,2,2,1,2,1,2,1,5,7,5,7,2,2,4,3,3,1,3,3,3,3,3,3,1,3,3,1,3,3,1,1,2,2,2,2,3,4,2,2,1,1,1,1,1,3,1,0,3,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0};
 
 int ruleLeft[] = {ACCEPT,P,LDE,LDE,DE,DE,DE,DF,DT,DT,DT,DC,DC,LI,LI,DV,LP,LP,LP,B,B,B,B,LDV,LDV,LS,LS,S,S,S,S,S,S,S,S,S,E,E,E,L,L,L,L,L,L,L,R,R,R,K,K,K,F,F,F,F,F,F,F,F,F,F,F,F,F,F,LE,LE,LE,LV,LV,LV,T,T,T,T,T,TRU,FALS,CHR,STR,NUM,IDD,IDU,ID,NB};
 
-typedef struct object
-{
-    int nName;
-    struct object *pNext;
-} object, *pobject;
-
-pobject SymbolTable[MAX_NEST_LEVEL];
-pobject SymbolTableLast[MAX_NEST_LEVEL];
-int nCurrentLevel = 0;
-
-/*METHODS*/
-
-void syntaxError();
-
-/*SCOPE*/
-
-int newBlock(void){
-    SymbolTable[++nCurrentLevel] = NULL;
-    SymbolTableLast[nCurrentLevel] = NULL;
-    return nCurrentLevel;
-}
-
-int endBlock(void){
-    return --nCurrentLevel;
-}
-
-pobject define(int aName){
-    pobject obj = new object();
-    obj->nName = aName;
-    obj->pNext = NULL;
-    
-    if( SymbolTable[nCurrentLevel] == NULL){
-        SymbolTable[nCurrentLevel] = obj;
-        SymbolTableLast[nCurrentLevel] = obj;
-    }
-    else{
-        SymbolTableLast[nCurrentLevel]->pNext = obj;
-        SymbolTableLast[nCurrentLevel] = obj;
-    }
-    return obj;
-}
-
-pobject search (int aName){
-    pobject obj = SymbolTable[nCurrentLevel];
-    while(obj != NULL){
-        if(obj-> nName == aName)
-            break;
-        else
-            obj = obj->pNext;
-    }
-    return obj;
-}
-
-pobject find (int aName)
-{
-    int i;
-    pobject obj = NULL;
-    for( i = nCurrentLevel; i >= 0; --i ) {
-        obj = SymbolTable[i];
-        while( obj != NULL )
-        {
-            if( obj->nName == aName )
-                break;
-            else
-                obj = obj->pNext;
-        }
-        if( obj != NULL ) break;
-    }
-    return obj;
-}
-
-void scopeError(string msg){
-    cout << msg << endl;;
-}
-
-void semantics(int rule){
-    int name;
-    pobject p;
-    switch(rule){
-        case IDD_RULE:
-            name = tokenSecundario;
-            cout << "TOKENSECUNDARIO" << name << endl;
-            if( (p = search(name)) != NULL){
-                scopeError("Ocorreu um erro de redeclaração: ");
-                exit(2);
-            }
-            else{
-                p = define(name);
-            }
-            break;
-        case IDU_RULE:
-            name = tokenSecundario;
-            cout << "TOKENSECUNDARIO" << name << endl;
-            if((p = find(name)) == NULL){
-                scopeError("Ocorreu um erro de não declaração: ");
-                exit(2);
-                p = define(name);
-            }
-            break;
-        case ID_RULE:
-            name = tokenSecundario;
-            break;
-        case NB_RULE:
-            newBlock();
-            break;
-        case DT_RULE:
-            endBlock();
-            break;
-        case DF_RULE:
-            endBlock();
-            break;
-        default:
-            break;
-    }
-}
-
 /*PARSER*/
 
 void initializeActionTable();
+
+void logParser(string msg){
+#ifdef LOG_PARSER
+    cout << msg << endl;
+#endif
+}
 
 void syntaxError(){
     cout << "Ocorreu um erro de sintaxe" << endl;
@@ -175,14 +55,13 @@ void parse(){
             }
             else if(IS_REDUCTION(p)){
                 int r = RULE(p);
-                cout << "RULE " << r << endl;
+                //cout << "RULE " << r << endl;
                 for(int i = 0;i<ruleLen[r];i++){
                     //cout << "POP " << stateStack.top() << endl;
                     stateStack.pop();
                 }
                 stateStack.push(actionTable[stateStack.top()][ruleLeft[r]]);
                 semantics(r);
-                
             }
             else{
                 syntaxError();

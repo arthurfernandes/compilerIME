@@ -8,6 +8,8 @@
 #include "analisador_lexico.h"
 #include "analisador_sintatico.hpp"
 
+#define LOG_PARSER
+
 extern FILE* program_file;
 
 using namespace std;

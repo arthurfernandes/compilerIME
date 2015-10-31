@@ -10,8 +10,11 @@ FILE *program_file;
 t_const vConsts[MAX_CONSTS];
 int nNumConsts = 0;
 char nextChar = '\x20';
-t_token token;
-int tokenSecundario;
+t_token token = UNKNOWN;
+int tokenSecundario = 0;
+bool hasTokenSecundario = false;
+int currentLine = 1;
+std::string tokenString = "";
 
 std::unordered_map<std::string,int> tokenSecundarioIDMap;
 std::unordered_map<std::string,t_token> t_tokenMap;
@@ -129,10 +132,16 @@ char* getStringConst(int n){
 }
 
 char readChar(){
-	return fgetc(program_file);
+	char c =  fgetc(program_file);
+    if(c == '\n'){
+        currentLine++;
+    }
+    return c;
 }
 
 t_token nextToken(void){
+    tokenString = "";
+    hasTokenSecundario = false;
     // loop do estado inicial para pular os separadores
     while(isspace(nextChar)){
         nextChar = readChar();
@@ -144,58 +153,64 @@ t_token nextToken(void){
     }
     
     if( isalpha(nextChar) ){
-        std::string text = "";
         do {
-            text = text + nextChar;
+            tokenString = tokenString + nextChar;
             nextChar = readChar();
         } while( isalnum(nextChar) || nextChar == '_' );
-        token = searchKeyWord(text);
-        std::cout << "Read:" << text << ", Token: " << token;
+        token = searchKeyWord(tokenString);
+        //std::cout << "Read:" << text << ", Token: " << token;
         if(token == IDT){
-            tokenSecundario = searchName(text);
-            std::cout << ", Token Secundario IDT " << tokenSecundario << std::endl;
+            tokenSecundario = searchName(tokenString);
+            hasTokenSecundario = true;
+            //std::cout << ", Token Secundario IDT " << tokenSecundario << std::endl;
         }
         else{
-            std::cout << std::endl;
+            //std::cout << std::endl;
         }
     }
     else if( isdigit(nextChar) ){
         char numeral[MAX_NUM_LEN+1];
         int i = 0;
-        std::cout << "Read: ";
+        //std::cout << "Read: ";
         do{
-            numeral [i++] = nextChar;
-            std::cout << nextChar;
+            tokenString = tokenString + nextChar;
+            numeral[i++] = nextChar;
+            //std::cout << nextChar;
             nextChar = readChar();
         }while( isdigit(nextChar) );
         numeral[i] = '\0';
         token = NUMERAL;
-        std::cout << ", Token: " << token;
+        //std::cout << ", Token: " << token;
         tokenSecundario = addIntConst(atoi(numeral));
-        std::cout << ", Token Secundario Const: " << tokenSecundario << std::endl;
+        hasTokenSecundario = true;
+        //std::cout << ", Token Secundario Const: " << tokenSecundario << std::endl;
     } else if( nextChar == '"' ){
-        std::string str = "";
-        do{
-            str += nextChar;
-            nextChar = readChar();
-        }while( nextChar != '"' );
-        str += '"';
-        token = STRINGVAL;
-        char* cstr = new char[str.size()+1];
-        memcpy(cstr, str.c_str(), str.size()+1);
-        tokenSecundario = addStringConst(cstr);
+        tokenString = "";
         nextChar = readChar();
-        std::cout << "Read: " << str << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;
+        while(nextChar != '"'){
+            tokenString += nextChar;
+            nextChar = readChar();
+        }
+        token = STRINGVAL;
+        char* cstr = new char[tokenString.size()+1];
+        memcpy(cstr, tokenString.c_str(), tokenString.size()+1);
+        tokenSecundario = addStringConst(cstr);
+        hasTokenSecundario = true;
+        nextChar = readChar();
+        //std::cout << "Read: " << str << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;
     }else if( nextChar == '\''){
         nextChar = readChar();
+        tokenString = nextChar;
         token = CHARACTER;
         tokenSecundario = addCharConst(nextChar);
-        std::cout << "Read: " << '\'' << nextChar << '\'' << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;
+        hasTokenSecundario = true;
+        /*std::cout << "Read: " << '\'' << nextChar << '\'' << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;*/
         nextChar = readChar(); //pular o '
         nextChar = readChar();
     }
     else{ //SIMBOLOS
-        std::cout << "Read: " << nextChar;
+        //std::cout << "Read: " << nextChar;
+        tokenString = nextChar;
         switch(nextChar){
             case ':':
                 nextChar = readChar();
@@ -236,7 +251,7 @@ t_token nextToken(void){
             case '&':
                 nextChar = readChar();
                 if(nextChar == '&'){
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = AND;
                     nextChar = readChar();
                 }
@@ -247,7 +262,7 @@ t_token nextToken(void){
             case '|':
                 nextChar = readChar();
                 if(nextChar == '|'){
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = OR;
                     nextChar = readChar();
                 }
@@ -259,7 +274,7 @@ t_token nextToken(void){
                 nextChar = readChar();
                 if( nextChar == '=' )
                 {
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = EQUAL_EQUAL;
                     nextChar = readChar();
                 } else {
@@ -269,7 +284,7 @@ t_token nextToken(void){
                 nextChar = readChar();
                 if( nextChar == '=' )
                 {
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = LESS_OR_EQUAL;
                     nextChar = readChar();
                 } else {
@@ -279,7 +294,7 @@ t_token nextToken(void){
                 nextChar = readChar();
                 if( nextChar == '=' )
                 {
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = GREATER_OR_EQUAL;
                     nextChar = readChar();
                 } else {
@@ -289,7 +304,7 @@ t_token nextToken(void){
                 nextChar = readChar();
                 if( nextChar == '=' )
                 {
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = NOT_EQUAL;
                     nextChar = readChar();
                 } else {
@@ -299,7 +314,7 @@ t_token nextToken(void){
                 nextChar = readChar();
                 if( nextChar == '+' )
                 {
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = PLUS_PLUS;
                     nextChar = readChar();
                 } else {
@@ -309,7 +324,7 @@ t_token nextToken(void){
                 nextChar = readChar();
                 if( nextChar == '-' )
                 {
-                    std::cout << nextChar;
+                    tokenString += nextChar;
                     token = MINUS_MINUS;
                     nextChar = readChar();
                 } else {
@@ -330,7 +345,7 @@ t_token nextToken(void){
             default:
                 token = UNKNOWN;
         }
-        std::cout << ", Token: " << token << std::endl;
+        //std::cout << ", Token: " << token << std::endl;
     }
     
     return token;
