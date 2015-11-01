@@ -20,6 +20,12 @@
 (k)==ALIAS_TYPE_ || \
 (k)==SCALAR_TYPE_)
 
+/*List of Error Codes*/
+
+typedef enum {
+    ERR_REDCL,ERR_NO_DECL,ERR_TYPE_EXPECTED,ERR_BOOL_TYPE_EXPECTED,ERR_TYPE_MISMATCH,ERR_INVALID_TYPE,ERR_KIND_NOT_STRUCT,ERR_FIELD_NOT_DECL,ERR_KIND_NOT_ARRAY,ERR_INVALID_INDEX_TYPE,ERR_KIND_NOT_VAR,ERR_KIND_NOT_FUNCTION,ERR_TOO_MANY_ARGS,ERR_PARAM_TYPE,ERR_TOO_FEW_ARGS
+} errorcode;
+
 /*List of Available Types*/
 
 typedef enum { NO_KIND_DEF_=-1, VAR_, PARAM_, FUNCTION_, FIELD_, ARRAY_TYPE_, STRUCT_TYPE_, ALIAS_TYPE_, SCALAR_TYPE_ , UNIVERSAL_} t_kind;
@@ -63,10 +69,21 @@ typedef struct {
         ID;
         struct {
             pobject type;
-        } T;
+        } T, E,L,R,K,F,LV;
+        struct {
+            pobject type;
+            pobject param;
+            bool err;
+        } MC;
+        struct{
+            pobject type;
+            pobject param;
+            bool err;
+            int n;
+        } LE;
         struct {
             pobject list;
-        } LI,DC;
+        } LI,DC,LP;
         struct {
             pobject type;
             bool val;
