@@ -35,15 +35,18 @@ public:
 } t_const;
 
 //Variáveis Globais
+extern int currentLine;
 extern t_const vConsts[MAX_CONSTS];
 extern int nNumConsts;
 extern char nextChar;
 extern t_token token;
 extern int tokenSecundario;
+extern bool hasTokenSecundario;
 extern FILE* program_file;
 extern std::unordered_map<std::string,int> tokenSecundarioIDMap;
 extern std::unordered_map<std::string,t_token> t_tokenReservedWordsMap;
 extern std::unordered_map<int,std::string> t_terminalNames;
+
 //Métodos
 int addCharConst(char c);
 int addIntConst(int n);

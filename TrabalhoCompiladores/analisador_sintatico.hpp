@@ -26,7 +26,7 @@ extern void parse();
 
 typedef enum{
     ACCEPT = 60,END,P,LDE,DE,DF,DT,DC,LI,DV,LP,B,LDV,LS,S,E,L,R,K,F,LE,LV,T,TRU,FALS,CHR,STR,NUM,IDD,IDU,ID,NB
-} symbols;
+} t_nont;
 
 
 

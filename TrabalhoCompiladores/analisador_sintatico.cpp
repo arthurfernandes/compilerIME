@@ -32,7 +32,7 @@ void logParser(string msg){
 }
 
 void syntaxError(){
-    cout << "Ocorreu um erro de sintaxe" << endl;
+    cout << "Ocorreu um erro de sintaxe na linha: " << currentLine << endl;
     exit(1);
 }
 
@@ -43,7 +43,7 @@ void parse(){
     stateStack.push(q);
     int a = nextToken();
     do{
-        cout << "PARSER: " << "STATE " << q << "token " << a << " name " << t_terminalNames[a] << endl;
+        //cout << "PARSER: " << "STATE " << q << "token " << a << " name " << t_terminalNames[a] << endl;
         if(actionTable[q].count(a) < 1){
             syntaxError();
         }

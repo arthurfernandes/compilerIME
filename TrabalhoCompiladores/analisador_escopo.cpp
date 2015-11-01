@@ -1,18 +1,14 @@
 
 #include "analisador_escopo.hpp"
-#include "analisador_lexico.h"
-#include "analisador_sintatico.hpp"
 #include <string>
+#include <stack>
 #include <iostream>
 
 using namespace std;
 
-typedef struct object
-{
-    int nName;
-    struct object *pNext;
-} object, *pobject;
+stack<t_attrib> StackSem;
 
+/*Symbol Tables*/
 pobject SymbolTable[MAX_NEST_LEVEL];
 pobject SymbolTableLast[MAX_NEST_LEVEL];
 int nCurrentLevel = 0;
@@ -73,7 +69,7 @@ pobject find (int aName)
 }
 
 void scopeError(string msg){
-    cout << msg << endl;;
+    cout << "Linha: " << currentLine << "," << msg << endl;
 }
 
 void semantics(int rule){
@@ -82,26 +78,46 @@ void semantics(int rule){
     switch(rule){
         case IDD_RULE:
             name = tokenSecundario;
-            cout << "TOKENSECUNDARIO" << name << endl;
+            t_attrib IDD_;
+            IDD_.nont = IDD;
+            IDD_._.IDD.name = name;
+            
+            //cout << "TOKENSECUNDARIO" << name << endl;
             if( (p = search(name)) != NULL){
-                scopeError("Ocorreu um erro de redeclaração: ");
-                exit(2);
+                scopeError("Ocorreu um erro de redeclaração");
             }
             else{
                 p = define(name);
             }
+            
+            IDD_._.IDD.obj = p;
+            StackSem.push(IDD_);
+            //t_attrib attr2;
+            //attr2 = StackSem.top();
+            //cout << "LINE" << currentLine << "Stack Size:" << StackSem.size() << " Stack Top : " <<   << endl;
             break;
         case IDU_RULE:
             name = tokenSecundario;
-            cout << "TOKENSECUNDARIO" << name << endl;
+            t_attrib IDU_;
+            IDU_.nont = IDU;
+            IDU_._.IDU.name = name;
+            
+            //cout << "TOKENSECUNDARIO" << name << endl;
             if((p = find(name)) == NULL){
-                scopeError("Ocorreu um erro de não declaração: ");
-                exit(2);
+                scopeError("Ocorreu um erro de não declaração");
                 p = define(name);
             }
+            
+            IDU_._.IDU.obj = p;
+            StackSem.push(IDU_);
             break;
         case ID_RULE:
+            t_attrib ID_;
+            ID_.nont = ID;
             name = tokenSecundario;
+            ID_._.ID.name = name;
+            ID_._.ID.obj = NULL;
+            StackSem.push(ID_);
             break;
         case NB_RULE:
             newBlock();

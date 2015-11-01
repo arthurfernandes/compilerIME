@@ -19,7 +19,12 @@ int main(int argc, const char * argv[]) {
         program_file = fopen(argv[0],"r");
     }
     else{
-        program_file = fopen("programa","r");
+        program_file = fopen("erro_escopo","r");
+    }
+    
+    if(program_file == NULL){
+        cout << "The file does not exist or could not be opened" << endl;
+        exit(1);
     }
     
     parse();
