@@ -197,14 +197,14 @@ t_token nextToken(void){
         tokenSecundario = addStringConst(cstr);
         hasTokenSecundario = true;
         nextChar = readChar();
-        //std::cout << "Read: " << str << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;
+        //std::cout << "Read: " << tokenString << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;
     }else if( nextChar == '\''){
         nextChar = readChar();
         tokenString = nextChar;
         token = CHARACTER;
         tokenSecundario = addCharConst(nextChar);
         hasTokenSecundario = true;
-        /*std::cout << "Read: " << '\'' << nextChar << '\'' << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;*/
+        //std::cout << "Read: " << '\'' << nextChar << '\'' << ", Token: " << token << ", Token Secundario Const: " << tokenSecundario << std::endl;
         nextChar = readChar(); //pular o '
         nextChar = readChar();
     }

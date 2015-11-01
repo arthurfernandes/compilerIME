@@ -55,7 +55,7 @@ void parse(){
             }
             else if(IS_REDUCTION(p)){
                 int r = RULE(p);
-                //cout << "RULE " << r << endl;
+                cout << "RULE " << r << endl;
                 for(int i = 0;i<ruleLen[r];i++){
                     //cout << "POP " << stateStack.top() << endl;
                     stateStack.pop();
