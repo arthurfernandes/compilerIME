@@ -23,7 +23,7 @@
 /*List of Error Codes*/
 
 typedef enum {
-    ERR_REDCL,ERR_NO_DECL,ERR_TYPE_EXPECTED,ERR_BOOL_TYPE_EXPECTED,ERR_TYPE_MISMATCH,ERR_INVALID_TYPE,ERR_KIND_NOT_STRUCT,ERR_FIELD_NOT_DECL,ERR_KIND_NOT_ARRAY,ERR_INVALID_INDEX_TYPE,ERR_KIND_NOT_VAR,ERR_KIND_NOT_FUNCTION,ERR_TOO_MANY_ARGS,ERR_PARAM_TYPE,ERR_TOO_FEW_ARGS
+    ERR_REDCL,ERR_NO_DECL,ERR_TYPE_EXPECTED,ERR_BOOL_TYPE_EXPECTED,ERR_TYPE_MISMATCH,ERR_INVALID_TYPE,ERR_KIND_NOT_STRUCT,ERR_FIELD_NOT_DECL,ERR_KIND_NOT_ARRAY,ERR_INVALID_INDEX_TYPE,ERR_KIND_NOT_VAR,ERR_KIND_NOT_FUNCTION,ERR_TOO_MANY_ARGS,ERR_PARAM_TYPE,ERR_TOO_FEW_ARGS,ERR_RETURN_TYPE_MISMATCH
 } errorcode;
 
 /*List of Available Types*/
@@ -41,20 +41,28 @@ typedef struct object
     union {
         struct {
             struct object *pType;
+            int nIndex;
+            int nSize;
         } Var, Param, Field;
         struct {
             struct object *pRetType;
             struct object *pParams;
+            int nIndex;
+            int nParams;
+            int nVars;
         } Function;
         struct {
             struct object *pElemType; int nNumElems;
+            int nSize;
         } Array;
         struct {
             struct object *pFields;
+            int nSize;
         } Struct;
         struct {
             struct object *pBaseType;
-        } Alias;
+            int nSize;
+        } Alias,Type;
     }_;
     
 } object, *pobject;
@@ -62,6 +70,7 @@ typedef struct object
 /*t_attrib data structure*/
 typedef struct {
     t_nont nont;
+    int nSize;
     union {
         struct {
             pobject obj;
@@ -75,6 +84,9 @@ typedef struct {
             pobject param;
             bool err;
         } MC;
+        struct {
+            int label;
+        } MT,ME,MW,MA;
         struct{
             pobject type;
             pobject param;

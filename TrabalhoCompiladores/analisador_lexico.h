@@ -13,7 +13,7 @@
 
 typedef enum{
 // palavras reservadas
-ARRAY, BOOLEAN, BREAK, CHAR, CONTINUE, DO, ELSE, FALSE, FUNCTION, IF, INTEGER, OF, STRING, STRUCT, TRUE, TYPE, VAR, WHILE,
+ARRAY, BOOLEAN, BREAK, CHAR, CONTINUE, DO, ELSE, FALSE, FUNCTION, IF, INTEGER, OF, RETURN,STRING, STRUCT, TRUE, TYPE, VAR, WHILE,
 // simbolos
 COLON, SEMI_COLON, COMMA, EQUALS, LEFT_SQUARE, RIGHT_SQUARE, LEFT_BRACES, RIGHT_BRACES, LEFT_PARENTHESIS, RIGHT_PARENTHESIS, AND, OR, LESS_THAN, GREATER_THAN, LESS_OR_EQUAL, GREATER_OR_EQUAL, NOT_EQUAL, EQUAL_EQUAL, PLUS, PLUS_PLUS, MINUS, MINUS_MINUS, TIMES, DIVIDE, DOT, NOT,
 // tokens regulares
@@ -42,6 +42,7 @@ extern char nextChar;
 extern t_token token;
 extern int tokenSecundario;
 extern bool hasTokenSecundario;
+extern std::string tokenString;
 extern FILE* program_file;
 extern std::unordered_map<std::string,int> tokenSecundarioIDMap;
 extern std::unordered_map<std::string,t_token> t_tokenReservedWordsMap;

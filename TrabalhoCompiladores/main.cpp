@@ -19,7 +19,7 @@ int main(int argc, const char * argv[]) {
         program_file = fopen(argv[0],"r");
     }
     else{
-        program_file = fopen("erro_tipo_esperado","r");
+        program_file = fopen("programa_novo","r");
     }
     
     if(program_file == NULL){

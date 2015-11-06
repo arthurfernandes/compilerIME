@@ -33,6 +33,7 @@ void initializeTerminalNames(void){
     t_terminalNames[IF] = "IF";
     t_terminalNames[INTEGER] = "INTEGER";
     t_terminalNames[OF] = "OF";
+    t_terminalNames[RETURN] = "RETURN";
     t_terminalNames[STRING] = "STRING";
     t_terminalNames[STRUCT] = "STRUCT";
     t_terminalNames[TRUE] = "TRUE";
@@ -88,6 +89,7 @@ void initializeTokenMap(void){
         t_tokenMap["if"] = IF;
         t_tokenMap["integer"] = INTEGER;
         t_tokenMap["of"] = OF;
+        t_tokenMap["return"] = RETURN;
         t_tokenMap["string"] = STRING;
         t_tokenMap["struct"] = STRUCT;
         t_tokenMap["true"] = TRUE;

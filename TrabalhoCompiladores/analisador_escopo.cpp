@@ -8,8 +8,13 @@ using namespace std;
 
 /*Global Variables*/
 
+/*Output File*/
+FILE *out;
+/*Semantic Stack*/
 stack<t_attrib> StackSem;
-
+/*Functions*/
+int nFuncs = 0;
+pobject curFunction;
 /*Symbol Tables*/
 pobject SymbolTable[MAX_NEST_LEVEL];
 pobject SymbolTableLast[MAX_NEST_LEVEL];
@@ -34,6 +39,15 @@ pobject pUniversal = &universal_;
 
 
 /*METHODS*/
+
+/*Label Generation*/
+
+int newLabel(void){
+    static int labelNo = 0;
+    return labelNo++;
+}
+
+/*Scope Analysis*/
 
 int newBlock(void){
     SymbolTable[++nCurrentLevel] = NULL;
@@ -138,6 +152,9 @@ void Error(errorcode code){
         case ERR_PARAM_TYPE:
             cout << "Param Type: O tipo especificado para o parametro e invalido";
             break;
+        case ERR_RETURN_TYPE_MISMATCH:
+            cout << "Return Type Mismatch: O tipo de retorno não corresponde ao tipo especificado para a função" << endl;
+            break;
         default:
             break;
     }
@@ -153,6 +170,12 @@ bool CheckTypes(pobject t1,pobject t2){
     }
     else if(t1->eKind == UNIVERSAL_ || t2->eKind == UNIVERSAL_){
         return true;
+    }
+    else if(t1->eKind == ALIAS_TYPE_ && t2->eKind != ALIAS_TYPE_){
+        return CheckTypes(t1->_.Alias.pBaseType,t2);
+    }
+    else if(t1->eKind != ALIAS_TYPE_ && t2->eKind == ALIAS_TYPE_){
+        return CheckTypes(t1,t2->_.Alias.pBaseType);
     }
     else if(t1->eKind == t2->eKind){
         //alias
@@ -183,9 +206,10 @@ bool CheckTypes(pobject t1,pobject t2){
 }
 
 void semantics(int rule){
-    int name,n;
-    pobject p,t,f;
-    t_attrib IDD_,IDU_,ID_,T_,LI_,LI0_,LI1_,TRU_,FALS_,STR_,CHR_,NUM_,DC_,DC0_,DC1_,LP_,LP0_,LP1_,E_,E0_,E1_,L_,L0_,L1_,R_,R0_,R1_,K_,K0_,K1_,F_,F0_,F1_,LV_,LV0_,LV1_,MC_,LE_,LE0_,LE1_;
+    static int name,n,l,l1,l2;
+    static pobject p,t,f;
+    static t_attrib IDD_,IDU_,ID_,T_,LI_,LI0_,LI1_,TRU_,FALS_,STR_,CHR_,NUM_,DC_,DC0_,DC1_,LP_,LP0_,LP1_,E_,E0_,E1_,L_,L0_,L1_,R_,R0_,R1_,K_,K0_,K1_,F_,F0_,F1_,LV_,LV0_,LV1_,MC_,LE_,LE0_,LE1_,MT_,ME_,MW_,MA_;
+    
     switch(rule){
         case IDD_RULE:
             name = tokenSecundario;
@@ -230,9 +254,11 @@ void semantics(int rule){
             
             if(IS_TYPE_KIND(p->eKind) || p->eKind == UNIVERSAL_){
                 T_._.T.type = p;
+                T_.nSize = p->_.Alias.nSize;
             }
             else{
                 T_._.T.type = pUniversal;
+                T_.nSize = 0;
                 Error(ERR_TYPE_EXPECTED);
             }
             T_.nont = T;
@@ -241,21 +267,25 @@ void semantics(int rule){
         case T_INTEGER_RULE:
             T_._.T.type = pInt;
             T_.nont = T;
+            T_.nSize = 1;
             StackSem.push(T_);
             break;
         case T_CHAR_RULE:
             T_._.T.type = pChar;
             T_.nont = T;
+            T_.nSize = 1;
             StackSem.push(T_);
             break;
         case T_BOOL_RULE:
             T_._.T.type = pBool;
             T_.nont = T;
+            T_.nSize = 1;
             StackSem.push(T_);
             break;
         case T_STRING_RULE:
             T_._.T.type = pString;
             T_.nont = T;
+            T_.nSize = 1;
             StackSem.push(T_);
             break;
         case LI_IDD_RULE:
@@ -279,14 +309,21 @@ void semantics(int rule){
             t = T_._.T.type;
             StackSem.pop();
             LI_ = StackSem.top();
-            p = LI_._.LI.list;
             StackSem.pop();
+            p = LI_._.LI.list;
+            n = curFunction->_.Function.nVars;
             
             while(p != NULL && p->eKind == NO_KIND_DEF_){
                 p->eKind = VAR_;
                 p->_.Var.pType = t;
+                p->_.Var.nSize = T_.nSize;
+                p->_.Var.nIndex = n;
+                
+                n += T_.nSize;
                 p = p->pNext;
             }
+            
+            curFunction->_.Function.nVars = n;
             break;
         case TRUE_RULE:
             TRU_.nont = TRU;
@@ -336,6 +373,8 @@ void semantics(int rule){
             p->eKind = ARRAY_TYPE_;
             p->_.Array.nNumElems = n;
             p->_.Array.pElemType = t;
+            p->_.Array.nSize = n * T_.nSize;
+            
             break;
         case DT_ALIAS_RULE:
             T_ = StackSem.top();
@@ -348,6 +387,7 @@ void semantics(int rule){
             
             p->eKind = ALIAS_TYPE_;
             p->_.Alias.pBaseType = t;
+            p->_.Alias.nSize = T_.nSize;
             break;
         case NB_RULE:
             newBlock();
@@ -360,12 +400,17 @@ void semantics(int rule){
             
             p = LI_._.LI.list;
             t = T_._.T.type;
+            n = 0;
             while( p != NULL && p->eKind == NO_KIND_DEF_){
                 p->eKind = FIELD_;
                 p->_.Field.pType = t;
+                p->_.Field.nSize = T_.nSize;
+                p->_.Field.nIndex = n;
+                n = n + T_.nSize;
                 p = p->pNext;
             }
             DC_._.DC.list = LI_._.LI.list;
+            DC_.nSize = n;
             DC_.nont = DC;
             StackSem.push(DC_);
             break;
@@ -374,18 +419,24 @@ void semantics(int rule){
             StackSem.pop();
             LI_ = StackSem.top();
             StackSem.pop();
+            DC1_ = StackSem.top();
+            StackSem.pop();
             
             p = LI_._.LI.list;
             t = T_._.T.type;
+            n = DC1_.nSize;
+            
             while( p != NULL && p->eKind == NO_KIND_DEF_){
                 p->eKind = FIELD_;
                 p->_.Field.pType = t;
+                p->_.Field.nIndex = n;
+                p->_.Field.nSize = T_.nSize;
+                n = n + T_.nSize;
                 p = p->pNext;
             }
             
-            DC1_ = StackSem.top();
-            StackSem.pop();
             DC0_._.DC.list = DC1_._.DC.list;
+            DC0_.nSize = n;
             DC0_.nont = DC;
             StackSem.push(DC0_);
             break;
@@ -398,12 +449,13 @@ void semantics(int rule){
             p = IDD_._.ID.obj;
             p->eKind = STRUCT_TYPE_;
             p->_.Struct.pFields = DC_._.DC.list;
-            
+            p->_.Struct.nSize = DC_.nSize;
             endBlock();
             break;
         case LP_EPSILON_RULE:
             LP_._.LP.list = NULL;
             LP_.nont = LP;
+            LP_.nSize = 0;
             StackSem.push(LP_);
             break;
         case LP_IDD_RULE:
@@ -416,8 +468,12 @@ void semantics(int rule){
             t = T_._.T.type;
             p->eKind = PARAM_;
             p->_.Param.pType = t;
+            p->_.Param.nIndex = 0;
+            p->_.Param.nSize = T_.nSize;
             LP_._.LP.list = p;
+            LP_.nSize = T_.nSize;
             LP_.nont = LP;
+            
             StackSem.push(LP_);
             break;
         case LP_LP_RULE:
@@ -425,16 +481,31 @@ void semantics(int rule){
             StackSem.pop();
             IDD_ = StackSem.top();
             StackSem.pop();
+            LP1_ = StackSem.top();
+            StackSem.pop();
             
             p = IDD_._.ID.obj;
             t = T_._.T.type;
+            n = LP1_.nSize;
+            
             p->eKind = PARAM_;
             p->_.Param.pType = t;
-            LP1_ = StackSem.top();
-            StackSem.pop();
+            p->_.Param.nIndex = n;
+            p->_.Param.nSize = T_.nSize;
+            
             LP0_._.LP.list = LP1_._.LP.list;
+            LP0_.nSize = n + T_.nSize;
             LP0_.nont = LP;
             StackSem.push(LP0_);
+            break;
+        case NF_RULE:
+            IDD_ = StackSem.top();
+            f = IDD_._.ID.obj;
+            f->eKind = FUNCTION_;
+            f->_.Function.nParams = 0;
+            f->_.Function.nVars = 0;
+            f->_.Function.nIndex = nFuncs++;
+            newBlock();
             break;
         case MF_RULE:
             T_ = StackSem.top();
@@ -448,15 +519,37 @@ void semantics(int rule){
             f->eKind = FUNCTION_;
             f->_.Function.pRetType = T_._.T.type;
             f->_.Function.pParams = LP_._.LP.list;
+            f->_.Function.nParams = LP_.nSize;
+            f->_.Function.nVars = LP_.nSize;
+            curFunction = f;
+            
+            fprintf(out,"BEGIN_FUNC %d %d %d\n",f->_.Function.nIndex,
+                    f->_.Function.nParams,
+                    f->_.Function.nVars-f->_.Function.nParams);
             break;
         case DF_RULE:
             endBlock();
+            fprintf(out,"END_FUNC\n");
             break;
         case S_BLOCK_RULE:
             endBlock();
             break;
+        case S_E_SEMICOLON:
+            E_ = StackSem.top();
+            StackSem.pop();
+            fprintf(out,"\tPOP\n");
+            break;
+        case MT_RULE:
+            l = newLabel();
+            MT_._.MT.label = l;
+            MT_.nont = MT;
+            fprintf(out,"\tTJMP_FW L%d\n",l);
+            StackSem.push(MT_);
+            break;
         case S_IF_RULE:
             StackSem.pop();
+            MT_ = StackSem.top();
+            StackSem.pop();
             E_ = StackSem.top();
             StackSem.pop();
             
@@ -464,38 +557,87 @@ void semantics(int rule){
             if( !CheckTypes(t,pBool)){
                 Error(ERR_BOOL_TYPE_EXPECTED);
             }
+            
+            fprintf(out,"L%d\n",MT_._.MT.label);
+            
+            break;
+        case ME_RULE:
+            MT_ = StackSem.top();
+            l1 = MT_._.MT.label;
+            l2 = newLabel();
+            ME_._.ME.label = l2;
+            ME_.nont = ME;
+            StackSem.push(ME_);
+            
+            fprintf(out,"\tTJMP_FW L%d\nL%d\n",l2,l1);
             break;
         case S_IF_ELSE_RULE:
+            ME_ = StackSem.top();
             StackSem.pop();
+            MT_ = StackSem.top();
             StackSem.pop();
             E_ = StackSem.top();
             StackSem.pop();
+            
+            l = ME_._.ME.label;
             
             t = E_._.E.type;
             if( !CheckTypes(t,pBool)){
                 Error(ERR_BOOL_TYPE_EXPECTED);
             }
+            fprintf(out,"\tL%d\n",l);
+            break;
+        case MW_RULE:
+            l = newLabel();
+            MW_._.MW.label = l;
+            StackSem.push(MW_);
+            fprintf(out,"\tL%d\n",l);
             break;
         case S_WHILE_RULE:
+            MT_ = StackSem.top();
             StackSem.pop();
             E_ = StackSem.top();
             StackSem.pop();
+            MW_ = StackSem.top();
+            StackSem.pop();
+            
+            l1 = MW_._.MW.label;
+            l2 = MT_._.MT.label;
             
             t = E_._.E.type;
             if( !CheckTypes(t,pBool)){
                 Error(ERR_BOOL_TYPE_EXPECTED);
             }
+            
+            fprintf(out,"\tJMP_BW L%d\nL%d\n",l1,l2);
             break;
         case S_DO_WHILE_RULE:
             E_ = StackSem.top();
             StackSem.pop();
             
+            MW_ = StackSem.top();
+            StackSem.pop();
+            l = MW_._.MW.label;
+            
             t = E_._.E.type;
             if( !CheckTypes(t,pBool)){
                 Error(ERR_BOOL_TYPE_EXPECTED);
             }
             
+            fprintf(out,"\tNOT\n\tTJMP_BW L%d\n",l);
+            break;
+        case S_BREAK_RULE:
+            MT_ = StackSem.top();
+            break;
+        case S_CONTINUE_RULE:
+            break;
+        case S_RETURN_RULE:
+            E_ = StackSem.top();
             StackSem.pop();
+            if(!CheckTypes(curFunction->_.Function.pRetType,E_._.E.type)){
+                Error(ERR_RETURN_TYPE_MISMATCH);
+            }
+            fprintf(out,"\tRET\n");
             break;
         case E_AND_RULE:
             L_ = StackSem.top();
@@ -513,6 +655,7 @@ void semantics(int rule){
             E0_._.E.type = pBool;
             E0_.nont = E;
             StackSem.push(E0_);
+            fprintf(out,"\tAND\n");
             break;
         case E_OR_RULE:
             L_ = StackSem.top();
@@ -530,6 +673,7 @@ void semantics(int rule){
             E0_._.E.type = pBool;
             E0_.nont = E;
             StackSem.push(E0_);
+            fprintf(out,"\tOR\n");
             break;
         case E_L_RULE:
             L_ = StackSem.top();
@@ -550,6 +694,9 @@ void semantics(int rule){
             L0_._.L.type = pBool;
             L0_.nont = L;
             StackSem.push(L0_);
+            
+            fprintf(out,"\tLT\n");
+            
             break;
         case L_GREATER_THAN_RULE:
             R_ = StackSem.top();
@@ -563,6 +710,7 @@ void semantics(int rule){
             L0_._.L.type = pBool;
             L0_.nont = L;
             StackSem.push(L0_);
+            fprintf(out,"\tGT\n");
             break;
         case L_LESS_EQUAL_RULE:
             R_ = StackSem.top();
@@ -576,6 +724,7 @@ void semantics(int rule){
             L0_._.L.type = pBool;
             L0_.nont = L;
             StackSem.push(L0_);
+            fprintf(out,"\tLE\n");
             break;
         case L_GREATER_EQUAL_RULE:
             R_ = StackSem.top();
@@ -589,6 +738,7 @@ void semantics(int rule){
             L0_._.L.type = pBool;
             L0_.nont = L;
             StackSem.push(L0_);
+            fprintf(out,"\tGE\n");
             break;
         case L_EQUAL_EQUAL_RULE:
             R_ = StackSem.top();
@@ -602,6 +752,7 @@ void semantics(int rule){
             L0_._.L.type = pBool;
             L0_.nont = L;
             StackSem.push(L0_);
+            fprintf(out,"\tEQ\n");
             break;
         case L_NOT_EQUAL_RULE:
             R_ = StackSem.top();
@@ -615,6 +766,7 @@ void semantics(int rule){
             L0_._.L.type = pBool;
             L0_.nont = L;
             StackSem.push(L0_);
+            fprintf(out,"\tNE\n");
             break;
         case L_R_RULE:
             R_ = StackSem.top();
@@ -640,6 +792,7 @@ void semantics(int rule){
             R0_._.R.type = R1_._.R.type;
             R0_.nont = R;
             StackSem.push(R0_);
+            fprintf(out,"\tADD\n");
             break;
         case R_MINUS_RULE:
             K_ = StackSem.top();
@@ -658,6 +811,7 @@ void semantics(int rule){
             R0_._.R.type = R1_._.R.type;
             R0_.nont = R;
             StackSem.push(R0_);
+            fprintf(out,"\tSUB\n");
             break;
         case R_K_RULE:
             K_ = StackSem.top();
@@ -683,6 +837,7 @@ void semantics(int rule){
             K0_._.K.type = K1_._.K.type;
             K0_.nont = K;
             StackSem.push(K0_);
+            fprintf(out,"\tMUL\n");
             break;
         case K_DIVIDE_RULE:
             F_ = StackSem.top();
@@ -701,6 +856,7 @@ void semantics(int rule){
             K0_._.K.type = K1_._.K.type;
             K0_.nont = K;
             StackSem.push(K0_);
+            fprintf(out,"\tDIV\n");
             break;
         case K_F_RULE:
             F_ = StackSem.top();
@@ -713,9 +869,12 @@ void semantics(int rule){
             LV_ = StackSem.top();
             StackSem.pop();
             
+            n = LV_._.LV.type->_.Type.nSize;
+            
             F_._.F.type = LV_._.LV.type;
             F_.nont = F;
             StackSem.push(F_);
+            fprintf(out,"\tDE_REF %d\n",n);
             break;
         case F_LEFT_PLUS_PLUS_RULE:
             LV_ = StackSem.top();
@@ -725,8 +884,10 @@ void semantics(int rule){
                 Error(ERR_INVALID_TYPE);
             }
             
-            F_._.F.type = LV_._.LV.type;
+            F_._.F.type = pInt;
             F_.nont = F;
+            fprintf(out,"\tDUP\n\tDUP\n\tDE_REF 1\n");
+            fprintf(out,"\tINC\n\tSTORE_REF 1\n\tDE_REF 1\n");
             StackSem.push(F_);
             break;
         case F_LEFT_MINUS_MINUS_RULE:
@@ -740,6 +901,8 @@ void semantics(int rule){
             F_._.F.type = LV_._.LV.type;
             F_.nont = F;
             StackSem.push(F_);
+            fprintf(out,"\tDUP\n\tDUP\n\tDE_REF 1\n");
+            fprintf(out,"\tDEC\n\tSTORE_REF 1\n\tDE_REF 1\n");
             break;
         case F_RIGHT_PLUS_PLUS_RULE:
             LV_ = StackSem.top();
@@ -752,6 +915,9 @@ void semantics(int rule){
             F_._.F.type = LV_._.LV.type;
             F_.nont = F;
             StackSem.push(F_);
+            fprintf(out,"\tDUP\n\tDUP\n\tDE_REF 1\n");
+            fprintf(out,"\tINC\n\tSTORE_REF 1\n\tDE_REF 1\n");
+            fprintf(out,"\tDEC\n");
             break;
         case F_RIGHT_MINUS_MINUS_RULE:
             LV_ = StackSem.top();
@@ -764,6 +930,9 @@ void semantics(int rule){
             F_._.F.type = t;
             F_.nont = F;
             StackSem.push(F_);
+            fprintf(out,"\tDUP\n\tDUP\n\tDE_REF 1\n");
+            fprintf(out,"\tDEC\n\tSTORE_REF 1\n\tDE_REF 1\n");
+            fprintf(out,"\tINC\n");
             break;
         case F_PARENTHESIS_E_RULE:
             E_ = StackSem.top();
@@ -785,6 +954,7 @@ void semantics(int rule){
             F0_._.F.type = t;
             F0_.nont = F;
             StackSem.push(F0_);
+            fprintf(out,"\tNEG\n");
             break;
         case F_NOT_F_RULE:
             F1_ = StackSem.top();
@@ -798,6 +968,7 @@ void semantics(int rule){
             F0_._.F.type = t;
             F0_.nont = F;
             StackSem.push(F0_);
+            fprintf(out,"\tNOT\n");
             break;
         case F_TRUE_RULE:
             TRU_ = StackSem.top();
@@ -805,6 +976,7 @@ void semantics(int rule){
             F_._.F.type = pBool;
             F_.nont = F;
             StackSem.push(F_);
+            fprintf(out,"\tLOAD_TRUE\n");
             break;
         case F_FALSE_RULE:
             FALS_ = StackSem.top();
@@ -812,6 +984,7 @@ void semantics(int rule){
             F_._.F.type = pBool;
             F_.nont = F;
             StackSem.push(F_);
+            fprintf(out,"\tLOAD_FALSE\n");
             break;
         case F_CHR_RULE:
             CHR_ = StackSem.top();
@@ -819,6 +992,8 @@ void semantics(int rule){
             F_._.F.type = pChar;
             F_.nont = F;
             StackSem.push(F_);
+            n = tokenSecundario;
+            fprintf(out,"\tLOAD_CONST %d\n",n);
             break;
         case F_STR_RULE:
             STR_ = StackSem.top();
@@ -826,6 +1001,8 @@ void semantics(int rule){
             F_._.F.type = pString;
             F_.nont = F;
             StackSem.push(F_);
+            n = tokenSecundario;
+            fprintf(out,"\tLOAD_CONST %d\n",n);
             break;
         case F_NUM_RULE:
             STR_ = StackSem.top();
@@ -833,6 +1010,8 @@ void semantics(int rule){
             F_._.F.type = pInt;
             F_.nont = F;
             StackSem.push(F_);
+            n = tokenSecundario;
+            fprintf(out,"\tLOAD_CONST %d\n",n);
             break;
         case LV_DOT_RULE:
             ID_ = StackSem.top();
@@ -861,11 +1040,13 @@ void semantics(int rule){
                 }
                 else{
                     LV0_._.LV.type = p->_.Field.pType;
+                    LV0_._.LV.type->_.Type.nSize = p->_.Field.nSize;
                 }
             }
             
             LV0_.nont = LV;
             StackSem.push(LV0_);
+            fprintf(out,"\tADD %d\n",p->_.Field.nIndex);
             break;
         case LV_SQUARE_RULE:
             E_ = StackSem.top();
@@ -885,6 +1066,8 @@ void semantics(int rule){
             }
             else{
                 LV0_._.LV.type = t->_.Array.pElemType;
+                n = t->_.Array.nSize/t->_.Array.nNumElems;
+                fprintf(out,"\tMUL %d\n\tADD\n",n);
             }
             
             if( !CheckTypes(E_._.E.type,pInt)){
@@ -907,20 +1090,28 @@ void semantics(int rule){
             }
             else{
                 LV_._.LV.type = p->_.Var.pType;
+                LV_._.LV.type->_.Type.nSize = p->_.Var.nSize;
             }
             LV_.nont = LV;
             StackSem.push(LV_);
+            fprintf(out,"\tLOAD_REF %d\n",p->_.Var.nIndex);
             break;
-        case S_LV_EQUAL_RULE:
-            E_ = StackSem.top();
+        case MA_RULE:
+            fprintf(out,"\tDUP\n");
+            break;
+        case E_LV_EQUAL_RULE:
+            E1_ = StackSem.top();
             StackSem.pop();
             LV_ = StackSem.top();
             StackSem.pop();
-            if(! CheckTypes(LV_._.LV.type,E_._.E.type)){
+            if(! CheckTypes(LV_._.LV.type,E1_._.E.type)){
                 Error(ERR_TYPE_MISMATCH);
             }
             
-            F_._.F.type = E_._.E.type;
+            E0_._.F.type = E1_._.E.type;
+            StackSem.push(E0_);
+            fprintf(out,"\tSTORE_REF %d",t->_.Type.nSize);
+            fprintf(out,"\tDE_REF %d",t->_.Type.nSize);
             break;
         case MC_RULE:
             IDU_ = StackSem.top();
@@ -944,7 +1135,6 @@ void semantics(int rule){
             E_ = StackSem.top();
             StackSem.pop();
             MC_ = StackSem.top();
-            StackSem.push(E_);
             
             LE_._.LE.param = NULL;
             LE_._.LE.err = MC_._.MC.err;
@@ -1002,7 +1192,7 @@ void semantics(int rule){
             }
             LE_._.LE.n = 0;
             LE_._.LE.param = MC_._.MC.param;
-            LE_._.LE.type = NULL;
+            LE_._.LE.type = pUniversal;
             LE_.nont = LE;
             StackSem.push(LE_);
             break;
@@ -1013,14 +1203,19 @@ void semantics(int rule){
             StackSem.pop();
             IDU_ = StackSem.top();
             StackSem.pop();
+            f = IDU_._.ID.obj;
             F_._.F.type = MC_._.MC.type;
-            if(!MC_._.MC.err){
-                if(LE_._.LE.param != NULL){
+            if(!LE_._.LE.err){
+                if(LE_._.LE.n-1 < f->_.Function.nParams){
                     Error(ERR_TOO_FEW_ARGS);
+                }
+               else if(LE_._.LE.n-1 > f->_.Function.nParams){
+                    Error(ERR_TOO_MANY_ARGS);
                 }
             }
             F_.nont = F;
             StackSem.push(F_);
+            fprintf(out,"\tCALL %d\n",f->_.Function.nIndex);
             break;
         default:
             break;
